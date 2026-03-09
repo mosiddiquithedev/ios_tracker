@@ -1,0 +1,38 @@
+name: App Discovery Crawler
+
+on:
+  schedule:
+    # Runs at 00:00, 04:00, 08:00, 12:00, 16:00, and 20:00 UTC
+    # Since the run takes ~1hr, this essentially gives roughly 3 hours 
+    # of rest in between the completion of one job and the start of the next.
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Allows manual trigger from the Actions tab
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    
+    # Ensure only one scraper runs at a time
+    concurrency:
+      group: scraper
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: ./crawler
+        run: npm ci || npm install
+
+      - name: Run Crawler
+        working-directory: ./crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node index.js
