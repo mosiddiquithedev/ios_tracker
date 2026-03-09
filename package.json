@@ -1,0 +1,20 @@
+{
+  "name": "ios-app-discovery",
+  "version": "1.0.0",
+  "description": "Discover newly released iOS apps from the Apple App Store",
+  "scripts": {
+    "crawl": "node crawler/index.js",
+    "crawl:quick": "node crawler/index.js --quick",
+    "crawl:letters": "node crawler/index.js --letters-only",
+    "dev": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "install:all": "npm install && cd crawler && npm install && cd ../client && npm install"
+  },
+  "keywords": [
+    "ios",
+    "app-store",
+    "crawler",
+    "discovery"
+  ],
+  "license": "MIT"
+}
