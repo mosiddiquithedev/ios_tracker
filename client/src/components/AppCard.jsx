@@ -13,7 +13,7 @@ function truncate(str, len = 150) {
     return str.length > len ? str.slice(0, len).trim() + '…' : str;
 }
 
-export default function AppCard({ app }) {
+export default function AppCard({ app, onCategoryClick }) {
     return (
         <div className="app-card">
             <div className="app-card-header">
@@ -27,7 +27,12 @@ export default function AppCard({ app }) {
                     <h3 className="app-name" title={app.name}>{app.name}</h3>
                     <p className="app-developer" title={app.developer}>{app.developer || 'Unknown Developer'}</p>
                     {app.category && (
-                        <span className="app-category-badge">{app.category}</span>
+                        <span
+                            className={`app-category-badge ${onCategoryClick ? 'clickable' : ''}`}
+                            onClick={() => onCategoryClick && onCategoryClick(app.category)}
+                        >
+                            {app.category}
+                        </span>
                     )}
                 </div>
             </div>

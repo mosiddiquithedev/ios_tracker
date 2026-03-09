@@ -5,7 +5,7 @@ const FILTERS = [
     { key: 'year', label: 'This Year' },
 ];
 
-export default function FilterBar({ activeFilter, onFilterChange, searchQuery, onSearchChange }) {
+export default function FilterBar({ activeFilter, onFilterChange, selectedCategory, onClearCategory }) {
     return (
         <div className="filter-bar">
             <div className="filter-group">
@@ -20,16 +20,12 @@ export default function FilterBar({ activeFilter, onFilterChange, searchQuery, o
                 ))}
             </div>
 
-            <div className="search-input-wrapper">
-                <span className="search-icon">🔍</span>
-                <input
-                    type="text"
-                    className="search-input"
-                    placeholder="Search apps by name..."
-                    value={searchQuery}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                />
-            </div>
+            {selectedCategory && (
+                <div className="active-category-pill">
+                    <span>Category: {selectedCategory}</span>
+                    <button className="clear-category-btn" onClick={onClearCategory} title="Clear filter">&times;</button>
+                </div>
+            )}
         </div>
     );
 }

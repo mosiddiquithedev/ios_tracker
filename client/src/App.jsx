@@ -33,11 +33,12 @@ function getDateRange(filter) {
 export default function App() {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(isConfigured);
-    const [filter, setFilter] = useState('year');
-    const [search, setSearch] = useState('');
+    const [filter, setFilter] = useState('week');
+    const [selectedCategory, setSelectedCategory] = useState(null);
     const [page, setPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
-    const [stats, setStats] = useState({ total: 0, today: 0, week: 0, categories: 0 });
+    const [stats, setStats] = useState({ total: 0, today: 0, week: 0 });
+    const [allCategories, setAllCategories] = useState([]);
     const [statsLoading, setStatsLoading] = useState(isConfigured);
 
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
@@ -70,13 +71,13 @@ export default function App() {
                 .select('category')
                 .not('category', 'is', null);
 
-            const uniqueCategories = new Set(catData?.map(r => r.category) || []);
+            const uniqueCategories = [...new Set(catData?.map(r => r.category) || [])].sort();
+            setAllCategories(uniqueCategories);
 
             setStats({
                 total: total || 0,
                 today: today || 0,
                 week: week || 0,
-                categories: uniqueCategories.size,
             });
         } catch (err) {
             console.error('Failed to fetch stats:', err);
@@ -101,8 +102,8 @@ export default function App() {
                 .order('release_date', { ascending: false })
                 .range(from, to);
 
-            if (search.trim()) {
-                query = query.ilike('name', `%${search.trim()}%`);
+            if (selectedCategory) {
+                query = query.eq('category', selectedCategory);
             }
 
             const { data, count, error } = await query;
@@ -121,15 +122,7 @@ export default function App() {
             setTotalCount(0);
         }
         setLoading(false);
-    }, [filter, page, search]);
-
-    // debounced search
-    const [debouncedSearch, setDebouncedSearch] = useState(search);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(search), 350);
-        return () => clearTimeout(timer);
-    }, [search]);
+    }, [filter, page, selectedCategory]);
 
     useEffect(() => {
         fetchStats();
@@ -137,15 +130,10 @@ export default function App() {
 
     useEffect(() => {
         fetchApps();
-    }, [filter, page, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [filter, page, selectedCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleFilterChange = (newFilter) => {
         setFilter(newFilter);
-        setPage(1);
-    };
-
-    const handleSearchChange = (value) => {
-        setSearch(value);
         setPage(1);
     };
 
@@ -164,76 +152,113 @@ export default function App() {
                 </div>
             </header>
 
-            {/* Setup Banner */}
-            {!isConfigured && (
-                <div style={{
-                    background: '#fef9e7',
-                    border: '1px solid #f0d96a',
-                    borderRadius: '12px',
-                    padding: '16px 24px',
-                    marginBottom: '28px',
-                    color: '#7c6a1a',
-                    fontSize: '14px',
-                    lineHeight: '1.6',
-                }}>
-                    <strong>⚠️ Supabase not configured.</strong> Create a <code>client/.env</code> file with your <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>, then restart the dev server. See the README for setup instructions.
-                </div>
-            )}
+            <div className="layout">
+                {/* Sidebar */}
+                <aside className="sidebar">
+                    <h2 className="sidebar-title">Categories</h2>
+                    <ul className="category-list">
+                        <li
+                            className={`category-item ${selectedCategory === null ? 'active' : ''}`}
+                            onClick={() => { setSelectedCategory(null); setPage(1); }}
+                        >
+                            All Categories
+                        </li>
+                        {allCategories.map(cat => (
+                            <li
+                                key={cat}
+                                className={`category-item ${selectedCategory === cat ? 'active' : ''}`}
+                                onClick={() => { setSelectedCategory(cat); setPage(1); }}
+                            >
+                                {cat}
+                            </li>
+                        ))}
+                    </ul>
+                </aside>
 
-            {/* Stats */}
-            <StatsBar stats={stats} loading={statsLoading} />
+                {/* Main Content */}
+                <main className="main-content">
+                    {/* Setup Banner */}
+                    {!isConfigured && (
+                        <div style={{
+                            background: '#fef9e7',
+                            border: '1px solid #f0d96a',
+                            borderRadius: '12px',
+                            padding: '16px 24px',
+                            marginBottom: '28px',
+                            color: '#7c6a1a',
+                            fontSize: '14px',
+                            lineHeight: '1.6',
+                        }}>
+                            <strong>⚠️ Supabase not configured.</strong> Create a <code>client/.env</code> file with your <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>, then restart the dev server. See the README for setup instructions.
+                        </div>
+                    )}
 
-            {/* Filters */}
-            <FilterBar
-                activeFilter={filter}
-                onFilterChange={handleFilterChange}
-                searchQuery={search}
-                onSearchChange={handleSearchChange}
-            />
+                    {/* Stats */}
+                    <StatsBar stats={stats} loading={statsLoading} />
 
-            {/* Results Info */}
-            {!loading && (
-                <div className="results-info">
-                    <span className="results-count">
-                        Showing <strong>{apps.length}</strong> of <strong>{totalCount.toLocaleString()}</strong> apps
-                    </span>
-                </div>
-            )}
+                    {/* Filters */}
+                    <FilterBar
+                        activeFilter={filter}
+                        onFilterChange={handleFilterChange}
+                        selectedCategory={selectedCategory}
+                        onClearCategory={() => {
+                            setSelectedCategory(null);
+                            setPage(1);
+                        }}
+                    />
 
-            {/* App Grid */}
-            {loading ? (
-                <div className="loading-container">
-                    <div className="spinner" />
-                    <p className="loading-text">Loading apps...</p>
-                </div>
-            ) : apps.length === 0 ? (
-                <div className="empty-state">
-                    <div className="empty-icon">📱</div>
-                    <h2 className="empty-title">No apps found</h2>
-                    <p className="empty-description">
-                        {!isConfigured
-                            ? 'Connect your Supabase project and run the crawler to start discovering apps.'
-                            : search
-                                ? `No apps matching "${search}" for this time period.`
-                                : 'No apps discovered for this time period. Try running the crawler or selecting a different filter.'}
-                    </p>
-                </div>
-            ) : (
-                <div className="app-grid">
-                    {apps.map((app) => (
-                        <AppCard key={app.track_id} app={app} />
-                    ))}
-                </div>
-            )}
+                    {/* Results Info */}
+                    {!loading && (
+                        <div className="results-info">
+                            <span className="results-count">
+                                Showing <strong>{apps.length}</strong> of <strong>{totalCount.toLocaleString()}</strong> apps
+                            </span>
+                        </div>
+                    )}
 
-            {/* Pagination */}
-            {!loading && totalPages > 1 && (
-                <Pagination
-                    currentPage={page}
-                    totalPages={totalPages}
-                    onPageChange={setPage}
-                />
-            )}
+                    {/* App Grid */}
+                    {loading ? (
+                        <div className="loading-container">
+                            <div className="spinner" />
+                            <p className="loading-text">Loading apps...</p>
+                        </div>
+                    ) : apps.length === 0 ? (
+                        <div className="empty-state">
+                            <div className="empty-icon">📱</div>
+                            <h2 className="empty-title">No apps found</h2>
+                            <p className="empty-description">
+                                {!isConfigured
+                                    ? 'Connect your Supabase project and run the crawler to start discovering apps.'
+                                    : selectedCategory
+                                        ? `No apps found in "${selectedCategory}" for this time period.`
+                                        : 'No apps discovered for this time period. Try running the crawler or selecting a different filter.'}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="app-grid">
+                            {apps.map((app) => (
+                                <AppCard
+                                    key={app.track_id}
+                                    app={app}
+                                    onCategoryClick={(cat) => {
+                                        setSelectedCategory(cat);
+                                        setPage(1);
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {!loading && totalPages > 1 && (
+                        <Pagination
+                            currentPage={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                        />
+                    )}
+                </main>
+            </div>
         </div>
     );
 }

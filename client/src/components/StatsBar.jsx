@@ -3,7 +3,6 @@ export default function StatsBar({ stats, loading }) {
         { label: 'Total Apps', value: stats.total, icon: '📱' },
         { label: 'Today', value: stats.today, icon: '🆕' },
         { label: 'This Week', value: stats.week, icon: '📅' },
-        { label: 'Categories', value: stats.categories, icon: '🏷️' },
     ];
 
     return (
