@@ -4,7 +4,7 @@ on:
   schedule:
     # Runs every 4 hours: 02:00, 06:00, 10:00, 14:00, 18:00, 22:00 UTC
     # Offset by 2h from the main crawler (runs on :00) to avoid overlap
-    # Runtime: ~3-5 min (17,576 queries / 10 concurrent requests at 100ms delay)
+    # Runtime: ~35-45 min (4 parallel runners, each doing ~4,400 queries at 5 concurrent × 150ms)
     - cron: '0 2/4 * * *'
   workflow_dispatch: # Allows manual trigger from the Actions tab
 
@@ -12,10 +12,22 @@ jobs:
   crawl-three-letters:
     runs-on: ubuntu-latest
 
-    # Ensure this crawler doesn't run concurrently with itself or the main crawler
+    strategy:
+      # Run all 4 matrix jobs in parallel (each uses a different runner IP)
+      fail-fast: false
+      matrix:
+        range:
+          - { start: 'a', end: 'f', label: 'a-f' }
+          - { start: 'g', end: 'l', label: 'g-l' }
+          - { start: 'm', end: 'r', label: 'm-r' }
+          - { start: 's', end: 'z', label: 's-z' }
+
+    name: Crawl (${{ matrix.range.label }})
+
+    # Prevent individual matrix jobs from overlapping on re-runs
     concurrency:
-      group: scraper
-      cancel-in-progress: false
+      group: scraper-three-${{ matrix.range.label }}
+      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
@@ -30,10 +42,10 @@ jobs:
         working-directory: ./crawler
         run: npm ci || npm install
 
-      - name: Run Three-Letter Crawler
+      - name: Run Three-Letter Crawler (${{ matrix.range.label }})
         working-directory: ./crawler
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: node index.js --three-letters
+        run: node index.js --three-letters --range=${{ matrix.range.start }}-${{ matrix.range.end }}

@@ -4,11 +4,28 @@ import pLimit from 'p-limit';
 // ─── Config ────────────────────────────────────────────────────────
 const ITUNES_API = 'https://itunes.apple.com/search';
 const LIMIT = 200;
-const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '250', 10);
+const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '150', 10);
 const CURRENT_YEAR = new Date().getFullYear();
 const BATCH_SIZE = 50; // Supabase upsert batch size
 const MAX_RETRIES = 5;
 const CONCURRENCY = parseInt(process.env.CONCURRENCY || '5', 10);
+
+// ─── User-Agent Rotation ───────────────────────────────────────────
+// Rotate through realistic browser UA strings to reduce fingerprinting
+const USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+];
+
+function getRandomUserAgent() {
+    return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
 
 // ─── Query Generation ──────────────────────────────────────────────
 // Common app name prefixes and words that surface niche/new apps
@@ -43,7 +60,7 @@ const CATEGORY_TERMS = [
     'realtor', 'property', 'mortgage', 'loan',
 ];
 
-function generateQueries(mode = 'full') {
+function generateQueries(mode = 'full', rangeFilter = null) {
     const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
     const digits = '0123456789'.split('');
 
@@ -57,9 +74,11 @@ function generateQueries(mode = 'full') {
     }
 
     if (mode === 'three') {
-        // All 3-letter combos: aaa → zzz (26³ = 17,576 queries, ~88 min at 300ms)
+        // All 3-letter combos: aaa → zzz (26³ = 17,576 queries, split by --range for matrix jobs)
         const combos = [];
         for (const a of alphabet) {
+            if (rangeFilter && (a < rangeFilter.start || a > rangeFilter.end)) continue;
+
             for (const b of alphabet) {
                 for (const c of alphabet) {
                     combos.push(a + b + c);
@@ -230,7 +249,18 @@ async function crawl() {
     else if (args.includes('--quick')) mode = 'quick';
     else if (args.includes('--three-letters')) mode = 'three';
 
-    const queries = generateQueries(mode);
+    // Parse optional --range=a-g (inclusive start and end first-letters for matrix splits)
+    let rangeFilter = null;
+    const rangeArg = args.find(a => a.startsWith('--range='));
+    if (rangeArg) {
+        const [start, end] = rangeArg.replace('--range=', '').split('-');
+        if (start && end) {
+            rangeFilter = { start, end };
+            log(`Range filter active: '${start}' to '${end}'`);
+        }
+    }
+
+    const queries = generateQueries(mode, rangeFilter);
 
     // Load existing trackIds from DB to skip known apps
     let existingIds = new Set();
