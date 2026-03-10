@@ -54,6 +54,19 @@ function generateQueries(mode = 'full') {
         return [...alphabet, ...digits, ...COMMON_PREFIXES];
     }
 
+    if (mode === 'three') {
+        // All 3-letter combos: aaa → zzz (26³ = 17,576 queries, ~88 min at 300ms)
+        const combos = [];
+        for (const a of alphabet) {
+            for (const b of alphabet) {
+                for (const c of alphabet) {
+                    combos.push(a + b + c);
+                }
+            }
+        }
+        return combos;
+    }
+
     // Full mode: a-z + aa-zz + digits + prefixes + category terms
     const queries = [...alphabet];
 
@@ -190,6 +203,7 @@ async function crawl() {
     let mode = 'full';
     if (args.includes('--letters-only')) mode = 'letters';
     else if (args.includes('--quick')) mode = 'quick';
+    else if (args.includes('--three-letters')) mode = 'three';
 
     const queries = generateQueries(mode);
 
@@ -213,6 +227,7 @@ async function crawl() {
     const modeLabels = {
         letters: 'Letters Only (a-z)',
         quick: 'Quick (a-z + digits + prefixes)',
+        three: 'Three Letters (aaa–zzz, 17,576 queries)',
         full: 'Full Sweep (a-z + aa-zz + digits + prefixes + categories)',
     };
 

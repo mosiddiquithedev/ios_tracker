@@ -6,6 +6,7 @@
     "crawl": "node crawler/index.js",
     "crawl:quick": "node crawler/index.js --quick",
     "crawl:letters": "node crawler/index.js --letters-only",
+    "crawl:three": "node crawler/index.js --three-letters",
     "dev": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "install:all": "npm install && cd crawler && npm install && cd ../client && npm install"
