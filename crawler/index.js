@@ -4,11 +4,13 @@ import pLimit from 'p-limit';
 // ─── Config ────────────────────────────────────────────────────────
 const ITUNES_API = 'https://itunes.apple.com/search';
 const LIMIT = 200;
-const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '750', 10);
+const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '500', 10);
 const CURRENT_YEAR = new Date().getFullYear();
-const BATCH_SIZE = 50; // Supabase upsert batch size
+const DB_BATCH_SIZE = 50; // Supabase upsert batch size
+const MACRO_BATCH_SIZE = parseInt(process.env.MACRO_BATCH_SIZE || '400', 10); // Number of requests before taking a big break
+const MACRO_PAUSE_MS = parseInt(process.env.MACRO_PAUSE_MS || '15000', 10); // 15 seconds break
 const MAX_RETRIES = 5;
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '3', 10);
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || '4', 10);
 
 // ─── User-Agent Rotation ───────────────────────────────────────────
 // Rotate through realistic browser UA strings to reduce fingerprinting
@@ -220,8 +222,8 @@ async function upsertApps(apps) {
     let upserted = 0;
 
     // Process in batches
-    for (let i = 0; i < apps.length; i += BATCH_SIZE) {
-        const batch = apps.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < apps.length; i += DB_BATCH_SIZE) {
+        const batch = apps.slice(i, i + DB_BATCH_SIZE);
 
         const { error } = await supabase
             .from('apps')
@@ -317,58 +319,72 @@ async function crawl() {
 
     const limit = pLimit(CONCURRENCY);
 
-    const tasks = queries.map((term, i) =>
-        limit(async () => {
-            const results = await fetchApps(term);
+    // Process all queries in macro chunks so we can pause completely between segments
+    for (let chunkStart = 0; chunkStart < queries.length; chunkStart += MACRO_BATCH_SIZE) {
+        const chunkEnd = Math.min(chunkStart + MACRO_BATCH_SIZE, queries.length);
+        const chunkQueries = queries.slice(chunkStart, chunkEnd);
 
-            if (results.length === 0 && i > 0) {
-                stats.failedQueries++;
-            }
+        log(`\n▶ Starting batch ${chunkStart + 1} to ${chunkEnd} of ${queries.length}...`);
 
-            stats.totalResults += results.length;
-            let queryNewCount = 0;
+        const tasks = chunkQueries.map((term, i) =>
+            limit(async () => {
+                const results = await fetchApps(term);
 
-            for (const result of results) {
-                if (!result.trackId) continue;
-
-                // We must be careful about concurrency and Set insertion, but JS is single threaded
-                if (seenIds.has(result.trackId)) {
-                    stats.duplicatesSkipped++;
-                    continue;
-                }
-                seenIds.add(result.trackId);
-
-                // Skip if already in database
-                if (existingIds.has(result.trackId)) {
-                    stats.alreadyInDb++;
-                    continue;
+                if (results.length === 0 && i > 0) {
+                    stats.failedQueries++;
                 }
 
-                // Filter by current year
-                if (!isCurrentYear(result.releaseDate)) {
-                    stats.filteredByYear++;
-                    continue;
+                stats.totalResults += results.length;
+                let queryNewCount = 0;
+
+                for (const result of results) {
+                    if (!result.trackId) continue;
+
+                    // We must be careful about concurrency and Set insertion, but JS is single threaded
+                    if (seenIds.has(result.trackId)) {
+                        stats.duplicatesSkipped++;
+                        continue;
+                    }
+                    seenIds.add(result.trackId);
+
+                    // Skip if already in database
+                    if (existingIds.has(result.trackId)) {
+                        stats.alreadyInDb++;
+                        continue;
+                    }
+
+                    // Filter by current year
+                    if (!isCurrentYear(result.releaseDate)) {
+                        stats.filteredByYear++;
+                        continue;
+                    }
+
+                    const app = extractApp(result);
+                    newApps.push(app);
+                    queryNewCount++;
+                    stats.newAppsFound++;
                 }
 
-                const app = extractApp(result);
-                newApps.push(app);
-                queryNewCount++;
-                stats.newAppsFound++;
-            }
+                stats.completedQueries++;
+                const progress = `[${stats.completedQueries}/${queries.length}]`;
+                log(`${progress} "${term}" → ${results.length} results, ${queryNewCount} new apps`);
 
-            stats.completedQueries++;
-            const progress = `[${stats.completedQueries}/${queries.length}]`;
-            log(`${progress} "${term}" → ${results.length} results, ${queryNewCount} new apps`);
+                // Delay between individual requests inside the batch
+                if (i < chunkQueries.length - 1) {
+                    await sleep(DELAY_MS);
+                }
+            })
+        );
 
-            // Delay between requests
-            if (i < queries.length - 1) {
-                await sleep(DELAY_MS);
-            }
-        })
-    );
+        // Wait for this chunk of fetches to finish entirely
+        await Promise.all(tasks);
 
-    // Wait for all fetches to finish
-    await Promise.all(tasks);
+        // Macro-pause to prevent 403s on data-center rate-limiting filters
+        if (chunkEnd < queries.length) {
+            log(`\n⏳ Finished batch. Taking a ${MACRO_PAUSE_MS / 1000} second break to avoid API bans...`);
+            await sleep(MACRO_PAUSE_MS);
+        }
+    }
 
     // Upsert all collected apps
     log('');
