@@ -4,11 +4,11 @@ import pLimit from 'p-limit';
 // ─── Config ────────────────────────────────────────────────────────
 const ITUNES_API = 'https://itunes.apple.com/search';
 const LIMIT = 200;
-const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '150', 10);
+const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '1000', 10);
 const CURRENT_YEAR = new Date().getFullYear();
 const BATCH_SIZE = 50; // Supabase upsert batch size
 const MAX_RETRIES = 5;
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '5', 10);
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || '2', 10);
 
 // ─── User-Agent Rotation ───────────────────────────────────────────
 // Rotate through realistic browser UA strings to reduce fingerprinting
