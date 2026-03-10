@@ -4,11 +4,11 @@ import pLimit from 'p-limit';
 // ─── Config ────────────────────────────────────────────────────────
 const ITUNES_API = 'https://itunes.apple.com/search';
 const LIMIT = 200;
-const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '100', 10);
+const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '250', 10);
 const CURRENT_YEAR = new Date().getFullYear();
 const BATCH_SIZE = 50; // Supabase upsert batch size
-const MAX_RETRIES = 3;
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10', 10);
+const MAX_RETRIES = 5;
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || '5', 10);
 
 // ─── Query Generation ──────────────────────────────────────────────
 // Common app name prefixes and words that surface niche/new apps
@@ -131,13 +131,21 @@ async function notify(message) {
     }
 }
 
-// ─── iTunes API Fetch ──────────────────────────────────────────────
 async function fetchApps(term) {
     const url = `${ITUNES_API}?term=${encodeURIComponent(term)}&entity=software&limit=${LIMIT}`;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
             const response = await fetch(url);
+
+            if (response.status === 429) {
+                const retryAfter = response.headers.get('Retry-After');
+                const backoff = retryAfter ? (parseInt(retryAfter, 10) * 1000) : (attempt * 2000); // Wait 2s, 4s, 6s...
+                logError(`Attempt ${attempt}/${MAX_RETRIES} for "${term}": HTTP 429 Too Many Requests`);
+                log(`  Retrying in ${backoff}ms...`);
+                await sleep(backoff);
+                continue;
+            }
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
