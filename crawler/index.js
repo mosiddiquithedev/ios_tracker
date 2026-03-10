@@ -143,6 +143,10 @@ function extractApp(result) {
         app_store_url: result.trackViewUrl || null,
         icon: result.artworkUrl100 || null,
         category: result.primaryGenreName || null,
+        price: result.price ?? null,
+        formatted_price: result.formattedPrice || null,
+        average_user_rating: result.averageUserRating ?? null,
+        user_rating_count: result.userRatingCount ?? null,
     };
 }
 

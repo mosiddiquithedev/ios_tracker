@@ -5,23 +5,35 @@
 
 -- Create the apps table
 CREATE TABLE IF NOT EXISTS apps (
-  track_id       BIGINT PRIMARY KEY,
-  name           TEXT NOT NULL,
-  description    TEXT,
-  developer      TEXT,
-  bundle_id      TEXT,
-  release_date   TIMESTAMPTZ,
-  last_updated   TIMESTAMPTZ,
-  app_store_url  TEXT,
-  icon           TEXT,
-  category       TEXT,
-  first_seen     TIMESTAMPTZ DEFAULT NOW(),
-  created_at     TIMESTAMPTZ DEFAULT NOW()
+  track_id             BIGINT PRIMARY KEY,
+  name                 TEXT NOT NULL,
+  description          TEXT,
+  developer            TEXT,
+  bundle_id            TEXT,
+  release_date         TIMESTAMPTZ,
+  last_updated         TIMESTAMPTZ,
+  app_store_url        TEXT,
+  icon                 TEXT,
+  category             TEXT,
+  price                NUMERIC(10, 2),
+  formatted_price      TEXT,
+  average_user_rating  NUMERIC(3, 2),
+  user_rating_count    INTEGER,
+  first_seen           TIMESTAMPTZ DEFAULT NOW(),
+  created_at           TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ── Migrate existing tables (safe to re-run) ──────────────────────
+ALTER TABLE apps ADD COLUMN IF NOT EXISTS price               NUMERIC(10, 2);
+ALTER TABLE apps ADD COLUMN IF NOT EXISTS formatted_price      TEXT;
+ALTER TABLE apps ADD COLUMN IF NOT EXISTS average_user_rating  NUMERIC(3, 2);
+ALTER TABLE apps ADD COLUMN IF NOT EXISTS user_rating_count    INTEGER;
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_apps_release_date ON apps (release_date DESC);
 CREATE INDEX IF NOT EXISTS idx_apps_category ON apps (category);
+CREATE INDEX IF NOT EXISTS idx_apps_first_seen ON apps (first_seen DESC);
+
 -- Enable trigram extension for fuzzy text search (required for gin_trgm_ops)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
