@@ -114,6 +114,21 @@ function logError(msg) {
     console.error(`[${timestamp()}] ❌ ${msg}`);
 }
 
+// ─── Discord Notifications ─────────────────────────────────────────
+async function notify(message) {
+    const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    if (!webhookUrl) return; // silently skip if not configured
+    try {
+        await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: message }),
+        });
+    } catch (err) {
+        logError(`Discord notification failed: ${err.message}`);
+    }
+}
+
 // ─── iTunes API Fetch ──────────────────────────────────────────────
 async function fetchApps(term) {
     const url = `${ITUNES_API}?term=${encodeURIComponent(term)}&entity=software&limit=${LIMIT}`;
@@ -252,6 +267,14 @@ async function crawl() {
     log(`  Known apps in DB: ${existingIds.size}`);
     log('═══════════════════════════════════════════════════════');
 
+    const startTime = Date.now();
+    await notify(
+        `🚀 **Crawler Started**\n` +
+        `▸ Mode: ${modeLabels[mode]}\n` +
+        `▸ Queries: ${queries.length.toLocaleString()}\n` +
+        `▸ Known apps in DB: ${existingIds.size.toLocaleString()}`
+    );
+
     for (let i = 0; i < queries.length; i++) {
         const term = queries[i];
         const progress = `[${i + 1}/${queries.length}]`;
@@ -322,6 +345,18 @@ async function crawl() {
     log(`  Saved to DB:        ${stats.upsertedCount}`);
     log(`  Failed queries:     ${stats.failedQueries}`);
     log('═══════════════════════════════════════════════════════');
+
+    const durationMin = Math.round((Date.now() - startTime) / 60000);
+    const status = stats.failedQueries === 0 ? '✅' : '⚠️';
+    await notify(
+        `${status} **Crawl Complete**\n` +
+        `▸ New apps found:   **${stats.newAppsFound.toLocaleString()}**\n` +
+        `▸ Saved to DB:      **${stats.upsertedCount.toLocaleString()}**\n` +
+        `▸ Already in DB:    ${stats.alreadyInDb.toLocaleString()}\n` +
+        `▸ Filtered (year):  ${stats.filteredByYear.toLocaleString()}\n` +
+        `▸ Failed queries:   ${stats.failedQueries}\n` +
+        `▸ Duration:         ${durationMin} min`
+    );
 }
 
 // ─── Run ───────────────────────────────────────────────────────────
