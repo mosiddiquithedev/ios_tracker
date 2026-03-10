@@ -4,7 +4,7 @@ on:
   schedule:
     # Runs every 4 hours: 02:00, 06:00, 10:00, 14:00, 18:00, 22:00 UTC
     # Offset by 2h from the main crawler (runs on :00) to avoid overlap
-    # Runtime: ~88 min (17,576 queries × 300ms), well within the 4-hour window
+    # Runtime: ~3-5 min (17,576 queries / 10 concurrent requests at 100ms delay)
     - cron: '0 2/4 * * *'
   workflow_dispatch: # Allows manual trigger from the Actions tab
 

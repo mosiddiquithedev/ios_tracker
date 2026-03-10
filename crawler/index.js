@@ -4,7 +4,7 @@ import pLimit from 'p-limit';
 // ─── Config ────────────────────────────────────────────────────────
 const ITUNES_API = 'https://itunes.apple.com/search';
 const LIMIT = 200;
-const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '300', 10);
+const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '100', 10);
 const CURRENT_YEAR = new Date().getFullYear();
 const BATCH_SIZE = 50; // Supabase upsert batch size
 const MAX_RETRIES = 3;
