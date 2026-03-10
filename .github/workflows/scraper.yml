@@ -3,8 +3,8 @@ name: App Discovery Crawler
 on:
   schedule:
     # Runs at 00:00, 04:00, 08:00, 12:00, 16:00, and 20:00 UTC
-    # Since the run takes ~1hr, this essentially gives roughly 3 hours 
-    # of rest in between the completion of one job and the start of the next.
+    # Runtime: ~5-10 min (1,100 queries / 5 concurrent requests at 250ms delay)
+    # This gives ~3.5 hours of rest between runs.
     - cron: '0 */4 * * *'
   workflow_dispatch: # Allows manual trigger from the Actions tab
 
