@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Routes, Route, NavLink } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import NewAppsPage from './pages/NewAppsPage';
 
 export default function App() {
+    const [hideReviewed, setHideReviewed] = useState(false);
+
     return (
         <div className="app-container">
             {/* Header */}
@@ -36,8 +39,8 @@ export default function App() {
             </header>
 
             <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/new" element={<NewAppsPage />} />
+                <Route path="/" element={<HomePage hideReviewed={hideReviewed} setHideReviewed={setHideReviewed} />} />
+                <Route path="/new" element={<NewAppsPage hideReviewed={hideReviewed} setHideReviewed={setHideReviewed} />} />
             </Routes>
         </div>
     );

@@ -30,11 +30,12 @@ function getDateRange(filter) {
     }
 }
 
-export default function HomePage() {
+export default function HomePage({ hideReviewed, setHideReviewed }) {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(isConfigured);
     const [filter, setFilter] = useState('week');
     const [selectedCategory, setSelectedCategory] = useState(null);
+    const [sortOrder, setSortOrder] = useState('date_desc');
     const [page, setPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [stats, setStats] = useState({ total: 0, today: 0, week: 0 });
@@ -96,9 +97,20 @@ export default function HomePage() {
                 .from('apps')
                 .select('*', { count: 'exact' })
                 .gte('release_date', range.from)
-                .lt('release_date', range.to)
-                .order('release_date', { ascending: false })
-                .range(from, to);
+                .lt('release_date', range.to);
+
+            if (hideReviewed) {
+                // If showing ONLY reviewed apps, we want apps where rating > 0 and count > 0
+                query = query.gt('average_user_rating', 0).gt('user_rating_count', 0);
+            }
+
+            if (sortOrder === 'date_desc') {
+                query = query.order('release_date', { ascending: false });
+            } else if (sortOrder === 'reviews_desc') {
+                query = query.order('user_rating_count', { ascending: false, nullsFirst: false });
+            }
+
+            query = query.range(from, to);
 
             if (selectedCategory) {
                 query = query.eq('category', selectedCategory);
@@ -120,10 +132,10 @@ export default function HomePage() {
             setTotalCount(0);
         }
         setLoading(false);
-    }, [filter, page, selectedCategory]);
+    }, [filter, page, selectedCategory, hideReviewed, sortOrder]);
 
     useEffect(() => { fetchStats(); }, [fetchStats]);
-    useEffect(() => { fetchApps(); }, [filter, page, selectedCategory]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { fetchApps(); }, [filter, page, selectedCategory, hideReviewed, sortOrder]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleFilterChange = (newFilter) => {
         setFilter(newFilter);
@@ -134,7 +146,7 @@ export default function HomePage() {
         <div className="layout">
             {/* Sidebar */}
             <aside className="sidebar">
-                <h2 className="sidebar-title">Categories</h2>
+                <h2 className="sidebar-title" style={{ marginTop: '16px' }}>Categories</h2>
                 <ul className="category-list">
                     <li
                         className={`category-item ${selectedCategory === null ? 'active' : ''}`}
@@ -185,6 +197,29 @@ export default function HomePage() {
                         <span className="results-count">
                             Showing <strong>{apps.length}</strong> of <strong>{totalCount.toLocaleString()}</strong> apps
                         </span>
+
+                        <div className="sort-controls">
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--color-text-secondary)', cursor: 'pointer', marginRight: '16px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={hideReviewed}
+                                    onChange={(e) => setHideReviewed(e.target.checked)}
+                                    style={{ accentColor: 'var(--color-accent)', cursor: 'pointer' }}
+                                />
+                                Show apps with reviews only
+                            </label>
+
+                            <label htmlFor="sortOrder">Sort by: </label>
+                            <select
+                                id="sortOrder"
+                                value={sortOrder}
+                                onChange={(e) => { setSortOrder(e.target.value); setPage(1); }}
+                                className="sort-select"
+                            >
+                                <option value="date_desc">Newest First</option>
+                                <option value="reviews_desc">Most Reviews</option>
+                            </select>
+                        </div>
                     </div>
                 )}
 

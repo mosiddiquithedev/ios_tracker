@@ -44,13 +44,14 @@ function renderStars(rating) {
     return stars.join('');
 }
 
-export default function NewAppsPage() {
+export default function NewAppsPage({ hideReviewed, setHideReviewed }) {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(isConfigured);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [page, setPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [allCategories, setAllCategories] = useState([]);
+    const [sortOrder, setSortOrder] = useState('date_desc');
 
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
     const range = getTodayRange();
@@ -83,9 +84,22 @@ export default function NewAppsPage() {
                 .from('apps')
                 .select('*', { count: 'exact' })
                 .gte('first_seen', range.from)
-                .lt('first_seen', range.to)
-                .order('first_seen', { ascending: false })
-                .range(from, to);
+                .lt('first_seen', range.to);
+
+            if (hideReviewed) {
+                // If showing ONLY reviewed apps, we want apps where rating > 0 and count > 0
+                query = query.gt('average_user_rating', 0).gt('user_rating_count', 0);
+            }
+
+            if (sortOrder === 'date_desc') {
+                query = query.order('first_seen', { ascending: false });
+            } else if (sortOrder === 'date_asc') {
+                query = query.order('first_seen', { ascending: true });
+            } else if (sortOrder === 'reviews_desc') {
+                query = query.order('user_rating_count', { ascending: false, nullsFirst: false });
+            }
+
+            query = query.range(from, to);
 
             if (selectedCategory) {
                 query = query.eq('category', selectedCategory);
@@ -107,10 +121,10 @@ export default function NewAppsPage() {
             setTotalCount(0);
         }
         setLoading(false);
-    }, [page, selectedCategory]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [page, selectedCategory, sortOrder, hideReviewed]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => { fetchCategories(); }, [fetchCategories]);
-    useEffect(() => { fetchApps(); }, [page, selectedCategory]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { fetchApps(); }, [page, selectedCategory, sortOrder, hideReviewed]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className="layout">
@@ -183,6 +197,30 @@ export default function NewAppsPage() {
                         <span className="results-count">
                             Showing <strong>{apps.length}</strong> of <strong>{totalCount.toLocaleString()}</strong> newly crawled apps
                         </span>
+
+                        <div className="sort-controls">
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--color-text-secondary)', cursor: 'pointer', marginRight: '16px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={hideReviewed}
+                                    onChange={(e) => setHideReviewed(e.target.checked)}
+                                    style={{ accentColor: 'var(--color-accent)', cursor: 'pointer' }}
+                                />
+                                Show apps with reviews only
+                            </label>
+
+                            <label htmlFor="sortOrder">Sort by: </label>
+                            <select
+                                id="sortOrder"
+                                value={sortOrder}
+                                onChange={(e) => { setSortOrder(e.target.value); setPage(1); }}
+                                className="sort-select"
+                            >
+                                <option value="date_desc">Newest First (Crawled)</option>
+                                <option value="date_asc">Oldest First (Crawled)</option>
+                                <option value="reviews_desc">Most Reviews</option>
+                            </select>
+                        </div>
                     </div>
                 )}
 
