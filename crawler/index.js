@@ -267,15 +267,27 @@ async function crawl() {
     // Load existing trackIds from DB to skip known apps
     let existingIds = new Set();
     try {
-        const { data } = await supabase
-            .from('apps')
-            .select('track_id');
-        if (data) {
-            existingIds = new Set(data.map(r => r.track_id));
+        let hasMore = true;
+        let start = 0;
+        const step = 1000;
+        while (hasMore) {
+            const { data, error } = await supabase
+                .from('apps')
+                .select('track_id')
+                .range(start, start + step - 1);
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                data.forEach(r => existingIds.add(r.track_id));
+                start += step;
+            } else {
+                hasMore = false;
+            }
         }
         log(`Loaded ${existingIds.size} existing app IDs from database`);
     } catch (err) {
-        log('Could not preload existing IDs, proceeding without dedup cache');
+        log(`Could not preload existing IDs: ${err.message}`);
     }
 
     const seenIds = new Set();
