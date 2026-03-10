@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import pLimit from 'p-limit';
 
 // ─── Config ────────────────────────────────────────────────────────
 const ITUNES_API = 'https://itunes.apple.com/search';
@@ -7,6 +8,7 @@ const DELAY_MS = parseInt(process.env.CRAWL_DELAY_MS || '300', 10);
 const CURRENT_YEAR = new Date().getFullYear();
 const BATCH_SIZE = 50; // Supabase upsert batch size
 const MAX_RETRIES = 3;
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10', 10);
 
 // ─── Query Generation ──────────────────────────────────────────────
 // Common app name prefixes and words that surface niche/new apps
@@ -275,56 +277,60 @@ async function crawl() {
         `▸ Known apps in DB: ${existingIds.size.toLocaleString()}`
     );
 
-    for (let i = 0; i < queries.length; i++) {
-        const term = queries[i];
-        const progress = `[${i + 1}/${queries.length}]`;
+    const limit = pLimit(CONCURRENCY);
 
-        const results = await fetchApps(term);
+    const tasks = queries.map((term, i) =>
+        limit(async () => {
+            const results = await fetchApps(term);
 
-        if (results.length === 0 && i > 0) {
-            stats.failedQueries++;
-        }
-
-        stats.totalResults += results.length;
-
-        let queryNewCount = 0;
-
-        for (const result of results) {
-            if (!result.trackId) continue;
-
-            // Deduplicate within this run
-            if (seenIds.has(result.trackId)) {
-                stats.duplicatesSkipped++;
-                continue;
-            }
-            seenIds.add(result.trackId);
-
-            // Skip if already in database
-            if (existingIds.has(result.trackId)) {
-                stats.alreadyInDb++;
-                continue;
+            if (results.length === 0 && i > 0) {
+                stats.failedQueries++;
             }
 
-            // Filter by current year
-            if (!isCurrentYear(result.releaseDate)) {
-                stats.filteredByYear++;
-                continue;
+            stats.totalResults += results.length;
+            let queryNewCount = 0;
+
+            for (const result of results) {
+                if (!result.trackId) continue;
+
+                // We must be careful about concurrency and Set insertion, but JS is single threaded
+                if (seenIds.has(result.trackId)) {
+                    stats.duplicatesSkipped++;
+                    continue;
+                }
+                seenIds.add(result.trackId);
+
+                // Skip if already in database
+                if (existingIds.has(result.trackId)) {
+                    stats.alreadyInDb++;
+                    continue;
+                }
+
+                // Filter by current year
+                if (!isCurrentYear(result.releaseDate)) {
+                    stats.filteredByYear++;
+                    continue;
+                }
+
+                const app = extractApp(result);
+                newApps.push(app);
+                queryNewCount++;
+                stats.newAppsFound++;
             }
 
-            const app = extractApp(result);
-            newApps.push(app);
-            queryNewCount++;
-            stats.newAppsFound++;
-        }
+            stats.completedQueries++;
+            const progress = `[${stats.completedQueries}/${queries.length}]`;
+            log(`${progress} "${term}" → ${results.length} results, ${queryNewCount} new apps`);
 
-        log(`${progress} "${term}" → ${results.length} results, ${queryNewCount} new apps (${CURRENT_YEAR})`);
-        stats.completedQueries++;
+            // Delay between requests
+            if (i < queries.length - 1) {
+                await sleep(DELAY_MS);
+            }
+        })
+    );
 
-        // Delay between requests
-        if (i < queries.length - 1) {
-            await sleep(DELAY_MS);
-        }
-    }
+    // Wait for all fetches to finish
+    await Promise.all(tasks);
 
     // Upsert all collected apps
     log('');
