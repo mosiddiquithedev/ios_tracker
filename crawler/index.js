@@ -206,6 +206,7 @@ function extractApp(result) {
         formatted_price: result.formattedPrice || null,
         average_user_rating: result.averageUserRating ?? null,
         user_rating_count: result.userRatingCount ?? null,
+        macos_app: false,
     };
 }
 
