@@ -5,7 +5,13 @@ const FILTERS = [
     { key: 'year', label: 'This Year' },
 ];
 
-export default function FilterBar({ activeFilter, onFilterChange, selectedCategory, onClearCategory }) {
+const PLATFORMS = [
+    { key: 'all', label: 'All' },
+    { key: 'ios', label: '📱 iOS' },
+    { key: 'macos', label: '🖥️ macOS' },
+];
+
+export default function FilterBar({ activeFilter, onFilterChange, selectedCategory, onClearCategory, platform, onPlatformChange }) {
     return (
         <div className="filter-bar">
             <div className="filter-group">
@@ -16,6 +22,18 @@ export default function FilterBar({ activeFilter, onFilterChange, selectedCatego
                         onClick={() => onFilterChange(f.key)}
                     >
                         {f.label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="filter-group">
+                {PLATFORMS.map((p) => (
+                    <button
+                        key={p.key}
+                        className={`filter-btn ${platform === p.key ? 'active' : ''}`}
+                        onClick={() => onPlatformChange(p.key)}
+                    >
+                        {p.label}
                     </button>
                 ))}
             </div>

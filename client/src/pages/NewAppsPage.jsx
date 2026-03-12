@@ -44,10 +44,23 @@ function renderStars(rating) {
     return stars.join('');
 }
 
+const PLATFORMS = [
+    { key: 'all', label: 'All' },
+    { key: 'ios', label: '📱 iOS' },
+    { key: 'macos', label: '🖥️ macOS' },
+];
+
+function applyPlatformFilter(query, platform) {
+    if (platform === 'ios') return query.eq('macos_app', false);
+    if (platform === 'macos') return query.eq('macos_app', true);
+    return query;
+}
+
 export default function NewAppsPage({ hideReviewed, setHideReviewed }) {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(isConfigured);
     const [selectedCategory, setSelectedCategory] = useState(null);
+    const [platform, setPlatform] = useState('all');
     const [page, setPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [allCategories, setAllCategories] = useState([]);
@@ -59,19 +72,20 @@ export default function NewAppsPage({ hideReviewed, setHideReviewed }) {
     const fetchCategories = useCallback(async () => {
         if (!isConfigured || !supabase) return;
         try {
-            const { data } = await supabase
-                .from('apps')
-                .select('category')
-                .gte('first_seen', range.from)
-                .lt('first_seen', range.to)
-                .not('category', 'is', null);
+            const { data } = await applyPlatformFilter(
+                supabase.from('apps').select('category')
+                    .gte('first_seen', range.from)
+                    .lt('first_seen', range.to)
+                    .not('category', 'is', null),
+                platform
+            );
 
             const unique = [...new Set(data?.map(r => r.category) || [])].sort();
             setAllCategories(unique);
         } catch (err) {
             console.error('Failed to fetch categories:', err);
         }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [platform]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchApps = useCallback(async () => {
         if (!isConfigured || !supabase) return;
@@ -80,11 +94,12 @@ export default function NewAppsPage({ hideReviewed, setHideReviewed }) {
             const from = (page - 1) * ITEMS_PER_PAGE;
             const to = from + ITEMS_PER_PAGE - 1;
 
-            let query = supabase
-                .from('apps')
-                .select('*', { count: 'exact' })
-                .gte('first_seen', range.from)
-                .lt('first_seen', range.to);
+            let query = applyPlatformFilter(
+                supabase.from('apps').select('*', { count: 'exact' })
+                    .gte('first_seen', range.from)
+                    .lt('first_seen', range.to),
+                platform
+            );
 
             if (hideReviewed) {
                 // If showing ONLY reviewed apps, we want apps where rating > 0 and count > 0
@@ -121,10 +136,10 @@ export default function NewAppsPage({ hideReviewed, setHideReviewed }) {
             setTotalCount(0);
         }
         setLoading(false);
-    }, [page, selectedCategory, sortOrder, hideReviewed]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [page, selectedCategory, sortOrder, hideReviewed, platform]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => { fetchCategories(); }, [fetchCategories]);
-    useEffect(() => { fetchApps(); }, [page, selectedCategory, sortOrder, hideReviewed]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { fetchApps(); }, [page, selectedCategory, sortOrder, hideReviewed, platform]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className="layout">
@@ -177,6 +192,21 @@ export default function NewAppsPage({ hideReviewed, setHideReviewed }) {
                         <strong>⚠️ Supabase not configured.</strong> Create a <code>client/.env</code> file with your <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>, then restart the dev server.
                     </div>
                 )}
+
+                {/* Platform toggle */}
+                <div className="filter-bar" style={{ marginBottom: '16px' }}>
+                    <div className="filter-group">
+                        {PLATFORMS.map((p) => (
+                            <button
+                                key={p.key}
+                                className={`filter-btn ${platform === p.key ? 'active' : ''}`}
+                                onClick={() => { setPlatform(p.key); setPage(1); }}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
                 {/* Category pill */}
                 {selectedCategory && (

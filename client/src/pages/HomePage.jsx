@@ -30,12 +30,19 @@ function getDateRange(filter) {
     }
 }
 
+function applyPlatformFilter(query, platform) {
+    if (platform === 'ios') return query.eq('macos_app', false);
+    if (platform === 'macos') return query.eq('macos_app', true);
+    return query;
+}
+
 export default function HomePage({ hideReviewed, setHideReviewed }) {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(isConfigured);
     const [filter, setFilter] = useState('week');
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [sortOrder, setSortOrder] = useState('date_desc');
+    const [platform, setPlatform] = useState('all');
     const [page, setPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [stats, setStats] = useState({ total: 0, today: 0, week: 0 });
@@ -48,28 +55,31 @@ export default function HomePage({ hideReviewed, setHideReviewed }) {
         if (!isConfigured || !supabase) return;
         setStatsLoading(true);
         try {
-            const { count: total } = await supabase
-                .from('apps')
-                .select('*', { count: 'exact', head: true });
+            const { count: total } = await applyPlatformFilter(
+                supabase.from('apps').select('*', { count: 'exact', head: true }),
+                platform
+            );
 
             const todayRange = getDateRange('today');
-            const { count: today } = await supabase
-                .from('apps')
-                .select('*', { count: 'exact', head: true })
-                .gte('release_date', todayRange.from)
-                .lt('release_date', todayRange.to);
+            const { count: today } = await applyPlatformFilter(
+                supabase.from('apps').select('*', { count: 'exact', head: true })
+                    .gte('release_date', todayRange.from)
+                    .lt('release_date', todayRange.to),
+                platform
+            );
 
             const weekRange = getDateRange('week');
-            const { count: week } = await supabase
-                .from('apps')
-                .select('*', { count: 'exact', head: true })
-                .gte('release_date', weekRange.from)
-                .lt('release_date', weekRange.to);
+            const { count: week } = await applyPlatformFilter(
+                supabase.from('apps').select('*', { count: 'exact', head: true })
+                    .gte('release_date', weekRange.from)
+                    .lt('release_date', weekRange.to),
+                platform
+            );
 
-            const { data: catData } = await supabase
-                .from('apps')
-                .select('category')
-                .not('category', 'is', null);
+            const { data: catData } = await applyPlatformFilter(
+                supabase.from('apps').select('category').not('category', 'is', null),
+                platform
+            );
 
             const uniqueCategories = [...new Set(catData?.map(r => r.category) || [])].sort();
             setAllCategories(uniqueCategories);
@@ -83,7 +93,7 @@ export default function HomePage({ hideReviewed, setHideReviewed }) {
             console.error('Failed to fetch stats:', err);
         }
         setStatsLoading(false);
-    }, []);
+    }, [platform]);
 
     const fetchApps = useCallback(async () => {
         if (!isConfigured || !supabase) return;
@@ -93,11 +103,12 @@ export default function HomePage({ hideReviewed, setHideReviewed }) {
             const from = (page - 1) * ITEMS_PER_PAGE;
             const to = from + ITEMS_PER_PAGE - 1;
 
-            let query = supabase
-                .from('apps')
-                .select('*', { count: 'exact' })
-                .gte('release_date', range.from)
-                .lt('release_date', range.to);
+            let query = applyPlatformFilter(
+                supabase.from('apps').select('*', { count: 'exact' })
+                    .gte('release_date', range.from)
+                    .lt('release_date', range.to),
+                platform
+            );
 
             if (hideReviewed) {
                 // If showing ONLY reviewed apps, we want apps where rating > 0 and count > 0
@@ -132,13 +143,18 @@ export default function HomePage({ hideReviewed, setHideReviewed }) {
             setTotalCount(0);
         }
         setLoading(false);
-    }, [filter, page, selectedCategory, hideReviewed, sortOrder]);
+    }, [filter, page, selectedCategory, hideReviewed, sortOrder, platform]);
 
     useEffect(() => { fetchStats(); }, [fetchStats]);
-    useEffect(() => { fetchApps(); }, [filter, page, selectedCategory, hideReviewed, sortOrder]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { fetchApps(); }, [filter, page, selectedCategory, hideReviewed, sortOrder, platform]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleFilterChange = (newFilter) => {
         setFilter(newFilter);
+        setPage(1);
+    };
+
+    const handlePlatformChange = (newPlatform) => {
+        setPlatform(newPlatform);
         setPage(1);
     };
 
@@ -190,6 +206,8 @@ export default function HomePage({ hideReviewed, setHideReviewed }) {
                     onFilterChange={handleFilterChange}
                     selectedCategory={selectedCategory}
                     onClearCategory={() => { setSelectedCategory(null); setPage(1); }}
+                    platform={platform}
+                    onPlatformChange={handlePlatformChange}
                 />
 
                 {!loading && (
