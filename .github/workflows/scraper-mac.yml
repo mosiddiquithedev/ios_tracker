@@ -1,0 +1,38 @@
+name: macOS App Discovery Crawler
+
+on:
+  schedule:
+    # Runs every 4 hours (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC)
+    # Runtime: ~25-35 min (5,000 queries / 4 concurrent requests at 3000ms delay)
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Allows manual trigger from the Actions tab
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+
+    # Separate concurrency group — won't block or be blocked by the iOS scraper
+    concurrency:
+      group: scraper-mac
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: ./crawler
+        run: npm ci || npm install
+
+      - name: Run macOS Crawler
+        working-directory: ./crawler
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: node index-mac.js
