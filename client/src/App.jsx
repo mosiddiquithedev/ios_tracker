@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Routes, Route, NavLink } from 'react-router-dom';
+import { Routes, Route, NavLink, Link } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import NewAppsPage from './pages/NewAppsPage';
 
@@ -11,13 +11,13 @@ export default function App() {
             {/* Header */}
             <header className="app-header">
                 <div className="header-content">
-                    <div className="header-brand">
+                    <Link to="/" className="header-brand">
                         <div className="header-logo">📡</div>
                         <div>
                             <h1 className="header-title">App Radar</h1>
                             <p className="header-subtitle">iOS App Discovery Dashboard</p>
                         </div>
-                    </div>
+                    </Link>
 
                     {/* Navigation */}
                     <nav className="header-nav">
