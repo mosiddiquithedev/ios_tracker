@@ -196,6 +196,11 @@ async function fetchApps(term) {
                 continue;
             }
 
+            // 403 won't resolve with retries — skip immediately
+            if (response.status === 403) {
+                return [];
+            }
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -390,6 +395,18 @@ async function crawl() {
 
         await Promise.all(tasks);
 
+        // Flush accumulated apps to DB after each macro batch so progress is
+        // saved even if the job is cancelled mid-run.
+        if (newApps.length > 0) {
+            log(`\n💾 Flushing ${newApps.length} new apps to database...`);
+            const saved = await upsertApps(newApps);
+            stats.upsertedCount += saved;
+            // Add flushed IDs to existingIds so subsequent batches skip them.
+            for (const app of newApps) existingIds.add(app.track_id);
+            newApps.length = 0;
+            log(`   Saved. Running total: ${stats.upsertedCount} apps in DB.`);
+        }
+
         if (chunkEnd < queries.length) {
             log(`\n⏳ Finished batch. Taking a ${MACRO_PAUSE_MS / 1000}s break to avoid API bans...`);
             await sleep(MACRO_PAUSE_MS);
@@ -397,8 +414,8 @@ async function crawl() {
     }
 
     log('');
-    log('Saving apps to database...');
-    stats.upsertedCount = await upsertApps(newApps);
+    log('All batches complete. Final flush...');
+    stats.upsertedCount += await upsertApps(newApps);
 
     log('');
     log('═══════════════════════════════════════════════════════');
