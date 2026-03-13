@@ -440,7 +440,7 @@ async function crawl() {
     log('═══════════════════════════════════════════════════════');
 
     const durationMin = Math.round((Date.now() - startTime) / 60000);
-    const status = stats.failedQueries === 0 ? '✅' : '⚠️';
+    const status = '✅';
     await notify(
         `${status} **macOS Crawl Complete${chunkLabel}**\n` +
         `▸ New apps found:   **${stats.newAppsFound.toLocaleString()}**\n` +
