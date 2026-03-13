@@ -56,7 +56,7 @@ function applyPlatformFilter(query, platform) {
     return query;
 }
 
-export default function NewAppsPage({ hideReviewed, setHideReviewed }) {
+export default function NewAppsPage({ hideReviewed, setHideReviewed, isFavorite, toggleFavorite }) {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(isConfigured);
     const [selectedCategory, setSelectedCategory] = useState(null);
@@ -279,6 +279,8 @@ export default function NewAppsPage({ hideReviewed, setHideReviewed }) {
                                 app={app}
                                 onCategoryClick={(cat) => { setSelectedCategory(cat); setPage(1); }}
                                 formatDateTime={formatDateTime}
+                                isFavorited={isFavorite ? isFavorite(app.track_id) : false}
+                                onToggleFavorite={toggleFavorite}
                             />
                         ))}
                     </div>
@@ -297,7 +299,7 @@ export default function NewAppsPage({ hideReviewed, setHideReviewed }) {
 }
 
 /* Extended AppCard that shows when the app was scraped */
-function NewAppCard({ app, onCategoryClick, formatDateTime }) {
+function NewAppCard({ app, onCategoryClick, formatDateTime, isFavorited = false, onToggleFavorite }) {
     function truncate(str, len = 150) {
         if (!str) return '';
         return str.length > len ? str.slice(0, len).trim() + '…' : str;
@@ -373,6 +375,15 @@ function NewAppCard({ app, onCategoryClick, formatDateTime }) {
                     <span>🍎</span>
                     Open in App Store
                 </a>
+                {onToggleFavorite && (
+                    <button
+                        className={`btn-favorite ${isFavorited ? 'favorited' : ''}`}
+                        onClick={() => onToggleFavorite(app.track_id)}
+                        title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                        {isFavorited ? '★' : '☆'}
+                    </button>
+                )}
             </div>
         </div>
     );

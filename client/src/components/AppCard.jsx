@@ -26,7 +26,7 @@ function renderStars(rating) {
     return stars.join('');
 }
 
-export default function AppCard({ app, onCategoryClick }) {
+export default function AppCard({ app, onCategoryClick, isFavorited = false, onToggleFavorite }) {
     return (
         <div className="app-card">
             <div className="app-card-header">
@@ -92,6 +92,15 @@ export default function AppCard({ app, onCategoryClick }) {
                     <span>🍎</span>
                     Open in App Store
                 </a>
+                {onToggleFavorite && (
+                    <button
+                        className={`btn-favorite ${isFavorited ? 'favorited' : ''}`}
+                        onClick={() => onToggleFavorite(app.track_id)}
+                        title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                        {isFavorited ? '★' : '☆'}
+                    </button>
+                )}
             </div>
         </div>
     );

@@ -36,7 +36,7 @@ function applyPlatformFilter(query, platform) {
     return query;
 }
 
-export default function HomePage({ hideReviewed, setHideReviewed }) {
+export default function HomePage({ hideReviewed, setHideReviewed, isFavorite, toggleFavorite }) {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(isConfigured);
     const [filter, setFilter] = useState('week');
@@ -265,6 +265,8 @@ export default function HomePage({ hideReviewed, setHideReviewed }) {
                                 key={app.track_id}
                                 app={app}
                                 onCategoryClick={(cat) => { setSelectedCategory(cat); setPage(1); }}
+                                isFavorited={isFavorite ? isFavorite(app.track_id) : false}
+                                onToggleFavorite={toggleFavorite}
                             />
                         ))}
                     </div>
