@@ -3,7 +3,6 @@ name: macOS App Discovery Crawler
 on:
   schedule:
     # Runs every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
-    # Runtime: ~25-35 min (5,000 queries / 4 concurrent requests at 3000ms delay)
     - cron: '0 */6 * * *'
   workflow_dispatch: # Allows manual trigger from the Actions tab
 
@@ -11,9 +10,13 @@ jobs:
   crawl:
     runs-on: ubuntu-latest
 
-    # Separate concurrency group — won't block or be blocked by the iOS scraper
+    strategy:
+      matrix:
+        chunk: [0, 1, 2, 3, 4]
+      fail-fast: false # let other chunks finish even if one fails
+
     concurrency:
-      group: scraper-mac
+      group: scraper-mac-${{ matrix.chunk }}
       cancel-in-progress: false
 
     steps:
@@ -29,10 +32,12 @@ jobs:
         working-directory: ./crawler
         run: npm ci || npm install
 
-      - name: Run macOS Crawler
+      - name: Run macOS Crawler (chunk ${{ matrix.chunk }})
         working-directory: ./crawler
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          CHUNK_INDEX: ${{ matrix.chunk }}
+          CHUNK_TOTAL: 5
         run: node index-mac.js

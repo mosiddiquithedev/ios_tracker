@@ -11,6 +11,8 @@ const MACRO_BATCH_SIZE = parseInt(process.env.MACRO_BATCH_SIZE || '400', 10);
 const MACRO_PAUSE_MS = parseInt(process.env.MACRO_PAUSE_MS || '15000', 10);
 const MAX_RETRIES = 5;
 const CONCURRENCY = parseInt(process.env.CONCURRENCY || '4', 10);
+const CHUNK_TOTAL = parseInt(process.env.CHUNK_TOTAL || '1', 10);
+const CHUNK_INDEX = parseInt(process.env.CHUNK_INDEX || '0', 10);
 
 // ─── User-Agent Rotation ───────────────────────────────────────────
 const USER_AGENTS = [
@@ -277,7 +279,12 @@ async function upsertApps(apps) {
 
 // ─── Main Crawler ──────────────────────────────────────────────────
 async function crawl() {
-    const queries = generateMacQueries();
+    let queries = generateMacQueries();
+
+    if (CHUNK_TOTAL > 1) {
+        const chunkSize = Math.ceil(queries.length / CHUNK_TOTAL);
+        queries = queries.slice(CHUNK_INDEX * chunkSize, (CHUNK_INDEX + 1) * chunkSize);
+    }
 
     // Load only track_ids already confirmed as macOS apps.
     // Apps in DB without macos_app=true (iOS-only records) are NOT skipped —
@@ -323,8 +330,9 @@ async function crawl() {
         upsertedCount: 0,
     };
 
+    const chunkLabel = CHUNK_TOTAL > 1 ? ` (chunk ${CHUNK_INDEX + 1}/${CHUNK_TOTAL})` : '';
     log('═══════════════════════════════════════════════════════');
-    log('  macOS App Discovery Crawler');
+    log(`  macOS App Discovery Crawler${chunkLabel}`);
     log(`  Queries: ${queries.length}`);
     log(`  Year Filter: ${CURRENT_YEAR}`);
     log(`  Delay: ${DELAY_MS}ms`);
@@ -334,7 +342,7 @@ async function crawl() {
 
     const startTime = Date.now();
     await notify(
-        `🖥️ **macOS Crawler Started**\n` +
+        `🖥️ **macOS Crawler Started${chunkLabel}**\n` +
         `▸ Queries: ${queries.length.toLocaleString()}\n` +
         `▸ Known macOS apps in DB: ${existingIds.size.toLocaleString()}`
     );
@@ -434,7 +442,7 @@ async function crawl() {
     const durationMin = Math.round((Date.now() - startTime) / 60000);
     const status = stats.failedQueries === 0 ? '✅' : '⚠️';
     await notify(
-        `${status} **macOS Crawl Complete**\n` +
+        `${status} **macOS Crawl Complete${chunkLabel}**\n` +
         `▸ New apps found:   **${stats.newAppsFound.toLocaleString()}**\n` +
         `▸ Saved to DB:      **${stats.upsertedCount.toLocaleString()}**\n` +
         `▸ Already in DB:    ${stats.alreadyInDb.toLocaleString()}\n` +
