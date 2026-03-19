@@ -48,6 +48,9 @@ export default function HomePage({ hideReviewed, setHideReviewed, isFavorite, to
     const [stats, setStats] = useState({ total: 0, today: 0, week: 0 });
     const [allCategories, setAllCategories] = useState([]);
     const [statsLoading, setStatsLoading] = useState(isConfigured);
+    const [dateFilterType, setDateFilterType] = useState('release_date');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
@@ -99,19 +102,28 @@ export default function HomePage({ hideReviewed, setHideReviewed, isFavorite, to
         if (!isConfigured || !supabase) return;
         setLoading(true);
         try {
-            const range = getDateRange(filter);
             const from = (page - 1) * ITEMS_PER_PAGE;
             const to = from + ITEMS_PER_PAGE - 1;
 
             let query = applyPlatformFilter(
-                supabase.from('apps').select('*', { count: 'exact' })
-                    .gte('release_date', range.from)
-                    .lt('release_date', range.to),
+                supabase.from('apps').select('*', { count: 'exact' }),
                 platform
             );
 
+            const hasCustomDates = startDate || endDate;
+            if (hasCustomDates) {
+                if (startDate) query = query.gte(dateFilterType, new Date(startDate).toISOString());
+                if (endDate) {
+                    const endOfDay = new Date(endDate);
+                    endOfDay.setDate(endOfDay.getDate() + 1);
+                    query = query.lt(dateFilterType, endOfDay.toISOString());
+                }
+            } else {
+                const range = getDateRange(filter);
+                query = query.gte('release_date', range.from).lt('release_date', range.to);
+            }
+
             if (hideReviewed) {
-                // If showing ONLY reviewed apps, we want apps where rating > 0 and count > 0
                 query = query.gt('average_user_rating', 0).gt('user_rating_count', 0);
             }
 
@@ -143,13 +155,15 @@ export default function HomePage({ hideReviewed, setHideReviewed, isFavorite, to
             setTotalCount(0);
         }
         setLoading(false);
-    }, [filter, page, selectedCategory, hideReviewed, sortOrder, platform]);
+    }, [filter, page, selectedCategory, hideReviewed, sortOrder, platform, dateFilterType, startDate, endDate]);
 
     useEffect(() => { fetchStats(); }, [fetchStats]);
-    useEffect(() => { fetchApps(); }, [filter, page, selectedCategory, hideReviewed, sortOrder, platform]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { fetchApps(); }, [filter, page, selectedCategory, hideReviewed, sortOrder, platform, dateFilterType, startDate, endDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleFilterChange = (newFilter) => {
         setFilter(newFilter);
+        setStartDate('');
+        setEndDate('');
         setPage(1);
     };
 
@@ -157,6 +171,10 @@ export default function HomePage({ hideReviewed, setHideReviewed, isFavorite, to
         setPlatform(newPlatform);
         setPage(1);
     };
+
+    const handleStartDateChange = (val) => { setStartDate(val); setPage(1); };
+    const handleEndDateChange = (val) => { setEndDate(val); setPage(1); };
+    const handleClearDateFilter = () => { setStartDate(''); setEndDate(''); setPage(1); };
 
     return (
         <div className="layout">
@@ -208,6 +226,13 @@ export default function HomePage({ hideReviewed, setHideReviewed, isFavorite, to
                     onClearCategory={() => { setSelectedCategory(null); setPage(1); }}
                     platform={platform}
                     onPlatformChange={handlePlatformChange}
+                    dateFilterType={dateFilterType}
+                    onDateFilterTypeChange={setDateFilterType}
+                    startDate={startDate}
+                    onStartDateChange={handleStartDateChange}
+                    endDate={endDate}
+                    onEndDateChange={handleEndDateChange}
+                    onClearDateFilter={handleClearDateFilter}
                 />
 
                 {!loading && (

@@ -474,6 +474,86 @@ body {
   color: #ef4444;
 }
 
+/* ─── Date Filter ────────────────────────────────────────── */
+.date-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.date-filter-type-select {
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-input);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, color 0.2s;
+  -webkit-appearance: auto;
+  appearance: auto;
+}
+
+.date-filter-type-select:focus,
+.date-filter-type-select:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.date-input {
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-input);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  -webkit-appearance: auto;
+  appearance: auto;
+}
+
+.date-input.has-value,
+.date-input:focus {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.date-filter-sep {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.clear-date-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  padding-bottom: 2px;
+}
+
+.clear-date-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
 .app-description {
   font-size: 13px;
   color: var(--color-text-secondary);
