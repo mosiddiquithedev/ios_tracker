@@ -325,6 +325,7 @@ async function crawl() {
         duplicatesSkipped: 0,
         alreadyInDb: 0,
         filteredByYear: 0,
+        filteredGames: 0,
         newAppsFound: 0,
         failedQueries: 0,
         upsertedCount: 0,
@@ -385,6 +386,12 @@ async function crawl() {
                         continue;
                     }
 
+                    // Skip games
+                    if (result.primaryGenreName === 'Games') {
+                        stats.filteredGames++;
+                        continue;
+                    }
+
                     const app = extractApp(result);
                     newApps.push(app);
                     queryNewCount++;
@@ -434,6 +441,7 @@ async function crawl() {
     log(`  Duplicates (run):   ${stats.duplicatesSkipped}`);
     log(`  Already in DB:      ${stats.alreadyInDb}`);
     log(`  Filtered (year):    ${stats.filteredByYear}`);
+    log(`  Filtered (games):   ${stats.filteredGames}`);
     log(`  New apps found:     ${stats.newAppsFound}`);
     log(`  Saved to DB:        ${stats.upsertedCount}`);
     log(`  Failed queries:     ${stats.failedQueries}`);
